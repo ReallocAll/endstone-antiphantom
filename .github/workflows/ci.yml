@@ -1,0 +1,32 @@
+name: Tests and wheel
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build distribution
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+          python -m build
+      - name: Install wheel and real Endstone SDK
+        run: python -m pip install dist/*.whl 'endstone==0.11.14' 'pytest>=8,<10'
+      - name: Test installed package
+        run: python -m pytest --import-mode=importlib
+      - name: Check isolated entry point
+        working-directory: /tmp
+        run: |
+          python -c "from importlib.metadata import distribution; ep, = [e for e in distribution('endstone-antiphantom').entry_points if e.group == 'endstone']; assert ep.name == 'antiphantom'; assert ep.load().api_version == '0.11'"
